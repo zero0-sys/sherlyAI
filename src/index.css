@@ -153,30 +153,9 @@ body {
   letter-spacing: 2px;
 }
 
-.message-wrapper {
-  display: flex;
-  flex-direction: column;
-  max-width: 85%;
-  position: relative;
-}
-
-.message-wrapper.user {
-  align-self: flex-end;
-  align-items: flex-end;
-}
-
-.message-wrapper.sherly {
-  align-self: flex-start;
-  align-items: flex-start;
-}
-
-@media (min-width: 600px) {
-  .message-wrapper {
-    max-width: 75%;
-  }
-}
-
 .message-bubble {
+  max-width: 85%;
+  width: fit-content;
   padding: 14px 20px;
   border-radius: 8px;
   font-size: 15px;
@@ -185,13 +164,21 @@ body {
   word-wrap: break-word;
 }
 
+@media (min-width: 600px) {
+  .message-bubble {
+    max-width: 75%;
+  }
+}
+
 .message-user {
+  align-self: flex-end;
   background: #ffffff;
   color: #000000;
   border-bottom-right-radius: 2px;
 }
 
 .message-sherly {
+  align-self: flex-start;
   background: #151515;
   color: #ffffff;
   border-bottom-left-radius: 2px;
