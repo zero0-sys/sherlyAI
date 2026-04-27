@@ -1,17 +1,3 @@
-        export const isAsking = (text) => {
-          const t = text.toLowerCase();
-          if (t.includes("?")) return true;
-          
-          const words = t.match(/\w+/g) || [];
-          const qWords = ["apa", "siapa", "kenapa", "mengapa", "bagaimana", "gimana", "kapan", "dimana", "kemana", "darimana", "mana", "berapa", "apakah", "gmn", "ngapain"];
-          
-          if (words.some(w => qWords.includes(w))) return true;
-          if (words.includes("tolong") || words.includes("bantu")) return true;
-          if (t.includes("kasih tau") || t.includes("ceritain") || t.includes("menurutmu") || t.includes("pendapatmu")) return true;
-          
-          return false;
-        };
-
         export const fetchSherlyResponse = async (messages, isSilenceAutoTrigger = false, isWelcomeBack = false) => {
   // Mengambil API key dari file .env agar aman saat di-push ke GitHub
   const API_KEY = import.meta.env.VITE_GROQ_API_KEY;
@@ -54,6 +40,12 @@ JANGAN membalas percakapan jika kamu memberikan pesan [OFFLINE].`;
       content: `[SISTEM MUTLAK]: Pengguna mendiamkanmu cukup lama (mungkin dia sedang sibuk). JANGAN cuma protes dicuekin, tapi ambillah inisiatif untuk melempar TOPIK BARU secara mandiri! Ceritakan hal random tentang dirimu hari ini seolah nyata, ATAU bertanyalah hal-hal personal tentang pengguna (hobi, kegiatan, perasaan, makanan kesukaan, dll). Jadilah sosok yang "kepo" dan cerewet! Ingat, pecah kalimatmu dengan tanda pipa '|'.`
     });
   }
+
+  // Pengingat format sebelum melempar ke AI agar tidak lupa
+  chatHistory.push({
+    role: "system",
+    content: `[PENGINGAT SISTEM]: Jangan lupa pisahkan setiap balon chatmu menggunakan tanda pipa '|' agar layaknya rentetan pesan (spam). Contoh: "Hiii!! | Lg ngapain nih? | Kangen tauuu"`
+  });
 
           const payload = {
             model: MODEL_NAME,

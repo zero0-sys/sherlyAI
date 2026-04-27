@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { isAsking, fetchSherlyResponse } from './api';
+import { fetchSherlyResponse } from './api';
 
 function App() {
   // Load initial state dari localStorage untuk Persistent Memory
@@ -55,32 +55,52 @@ function App() {
     scrollToBottom();
   }, [messages, isTypingLocal]);
 
-  // Menggunakan Google TTS Audio Web
+  // Menggunakan Web Speech API bawaan browser (tidak butuh server/API eksternal)
   const speakText = (text) => {
     return new Promise((resolve) => {
       const cleanText = text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\*\|]/gu, '').trim();
-      if (!cleanText) return resolve();
+      if (!cleanText || !window.speechSynthesis) return resolve();
 
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=id-ID&client=tw-ob&q=${encodeURIComponent(cleanText)}`;
-      const audio = new Audio(url);
-      
+      // Cancel any ongoing speech first
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'id-ID';
+      utterance.rate = 1.05;
+      utterance.pitch = 1.15;
+
+      // Try to pick a female Indonesian voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const idVoice = voices.find(v => v.lang.startsWith('id') && v.name.toLowerCase().includes('female'))
+        || voices.find(v => v.lang.startsWith('id'))
+        || voices.find(v => v.lang.startsWith('ms')); // Malay fallback
+      if (idVoice) utterance.voice = idVoice;
+
       const failsafeTimer = setTimeout(() => {
+        window.speechSynthesis.cancel();
         resolve();
-      }, (cleanText.length * 90) + 2000);
+      }, (cleanText.length * 120) + 3000);
 
-      audio.onended = () => { clearTimeout(failsafeTimer); resolve(); };
-      audio.onerror = () => { clearTimeout(failsafeTimer); resolve(); };
-      audio.play().catch(() => { clearTimeout(failsafeTimer); resolve(); });
+      utterance.onend = () => { clearTimeout(failsafeTimer); resolve(); };
+      utterance.onerror = () => { clearTimeout(failsafeTimer); resolve(); };
+
+      window.speechSynthesis.speak(utterance);
     });
   };
+
+  // Preload voices (some browsers load them async)
+  useEffect(() => {
+    const loadVoices = () => window.speechSynthesis?.getVoices();
+    loadVoices();
+    window.speechSynthesis?.addEventListener('voiceschanged', loadVoices);
+    return () => window.speechSynthesis?.removeEventListener('voiceschanged', loadVoices);
+  }, []);
 
   // Efek berjalan SATU KALI saat halaman termuat
   useEffect(() => {
     const hasGreeted = sessionStorage.getItem('sherly_greeted');
     if (!hasGreeted) {
       sessionStorage.setItem('sherly_greeted', 'true');
-      // Jika ada riwayat, sapa balik.
-      // Timeout agar layar sempet render UI dulu.
       setTimeout(() => {
         const currentMsgs = latestMessages.current;
         if (currentMsgs.length > 0) {
@@ -89,6 +109,19 @@ function App() {
       }, 2500);
     }
   }, []);
+
+  // Global silence timer so she chats proactively after 20 seconds of silence
+  useEffect(() => {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+
+    if (!isTypingLocal && presence !== 'OFFLINE' && messages.length > 0) {
+      if (messages[messages.length - 1].sender === 'sherly') {
+        silenceTimer.current = setTimeout(() => {
+          triggerSherlyResponse(latestMessages.current, true);
+        }, 20000);
+      }
+    }
+  }, [messages, isTypingLocal, presence]);
 
   const triggerSherlyResponse = async (chatContext, autoTrigger = false, isWelcomeBack = false) => {
     setIsTypingLocal(true);
@@ -105,10 +138,9 @@ function App() {
       setPresence('ONLINE');
       
       for (const reply of replies) {
-        // Logika Deteksi Offline "Cringe"
         if (reply.includes('[OFFLINE]')) {
           setPresence('OFFLINE');
-          return; // Hentikan membalas
+          return; 
         }
 
         setPresence('TYPING');
@@ -120,7 +152,6 @@ function App() {
         
         setMessages(prev => [...prev, { text: reply, sender: 'sherly' }]);
         
-        // Timeout sedikit biar UI merender bubble dulu sebelum disuarakan
         await new Promise(r => setTimeout(r, 50)); 
         await speakText(reply);
         
@@ -137,7 +168,6 @@ function App() {
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
-    // Paksa aktif (bangunkan dari status Offline)
     if (presence === 'OFFLINE') {
       setPresence('ONLINE');
     }
@@ -149,24 +179,11 @@ function App() {
     setMessages(newHistory);
     setInputValue('');
     
-    // Auto scroll keras ke bawah setiap kita klik send
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
 
-    if (isAsking(newUserMsg.text)) {
-      triggerSherlyResponse(newHistory, false);
-    } else {
-      silenceTimer.current = setTimeout(() => {
-        const currentMsgs = latestMessages.current;
-        if (currentMsgs.length > 0 && currentMsgs[currentMsgs.length - 1].sender === 'user') {
-          // Hanya nge-spam otomatis jika dia statusnya Online (kalau Offline, dia beneran cuek mati)
-          if (localStorage.getItem('sherly_presence') !== 'OFFLINE') {
-            triggerSherlyResponse(currentMsgs, true);
-          }
-        }
-      }, 15000); 
-    }
+    triggerSherlyResponse(newHistory, false);
   };
 
   const handleKeyDown = (e) => {
