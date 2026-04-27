@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './index.css';
-import { fetchSherlyResponse } from './api';
+import { isAsking, fetchSherlyResponse } from './api';
 
 function App() {
   // Load initial state dari localStorage untuk Persistent Memory
@@ -183,7 +183,20 @@ function App() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
 
-    triggerSherlyResponse(newHistory, false);
+    if (isAsking(newUserMsg.text)) {
+      // Pertanyaan → langsung balas
+      triggerSherlyResponse(newHistory, false);
+    } else {
+      // Pernyataan biasa → diam dulu 15 detik, baru balas
+      silenceTimer.current = setTimeout(() => {
+        const currentMsgs = latestMessages.current;
+        if (currentMsgs.length > 0 && currentMsgs[currentMsgs.length - 1].sender === 'user') {
+          if (localStorage.getItem('sherly_presence') !== 'OFFLINE') {
+            triggerSherlyResponse(currentMsgs, true);
+          }
+        }
+      }, 15000);
+    }
   };
 
   const handleKeyDown = (e) => {

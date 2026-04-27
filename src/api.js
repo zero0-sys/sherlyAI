@@ -1,3 +1,17 @@
+export const isAsking = (text) => {
+  const t = text.toLowerCase();
+  if (t.includes("?")) return true;
+
+  const words = t.match(/\w+/g) || [];
+  const qWords = ["apa", "siapa", "kenapa", "mengapa", "bagaimana", "gimana", "kapan", "dimana", "kemana", "darimana", "mana", "berapa", "apakah", "gmn", "ngapain"];
+
+  if (words.some(w => qWords.includes(w))) return true;
+  if (words.includes("tolong") || words.includes("bantu")) return true;
+  if (t.includes("kasih tau") || t.includes("ceritain") || t.includes("menurutmu") || t.includes("pendapatmu")) return true;
+
+  return false;
+};
+
         export const fetchSherlyResponse = async (messages, isSilenceAutoTrigger = false, isWelcomeBack = false) => {
   // Mengambil API key dari file .env agar aman saat di-push ke GitHub
   const API_KEY = import.meta.env.VITE_GROQ_API_KEY;
